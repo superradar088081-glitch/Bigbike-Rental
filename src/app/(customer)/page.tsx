@@ -20,11 +20,16 @@ import {
 export const revalidate = 0;
 
 export default async function HomePage() {
-  const featuredBikes = await prisma.vehicle.findMany({
-    take: 6,
-    where: { status: { in: ['AVAILABLE', 'RESERVED', 'RENTED'] } },
-    orderBy: { rentalPricePerDay: 'desc' },
-  });
+  let featuredBikes: any[] = [];
+  try {
+    featuredBikes = await prisma.vehicle.findMany({
+      take: 6,
+      where: { status: { in: ['AVAILABLE', 'RESERVED', 'RENTED'] } },
+      orderBy: { rentalPricePerDay: 'desc' },
+    });
+  } catch (err) {
+    console.error('Failed to load featured bikes from database:', err);
+  }
 
   return (
     <div className="space-y-20 pb-20">

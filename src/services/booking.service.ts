@@ -108,7 +108,7 @@ export class BookingService {
     const bookingNumber = `BK${datePrefix}-${randomSuffix}`;
 
     // 5. Database transaction to create booking, deduct points, and generate contract draft
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Deduct points if used
       if (pointsUsed > 0) {
         await tx.customer.update({
@@ -185,7 +185,7 @@ export class BookingService {
     });
     if (!booking) throw new Error('ไม่พบข้อมูลการจอง');
 
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       // If marking as ACTIVE (handover), update vehicle status to RENTED
       if (status === BookingStatus.ACTIVE) {
         await tx.vehicle.update({

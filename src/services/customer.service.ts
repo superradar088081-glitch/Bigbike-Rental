@@ -34,7 +34,7 @@ export class CustomerService {
   }
 
   static async updatePoints(customerId: string, pointsDelta: number, description: string) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       const customer = await tx.customer.update({
         where: { id: customerId },
         data: { points: { increment: pointsDelta } },
@@ -54,7 +54,7 @@ export class CustomerService {
         orderBy: { minPoints: 'desc' },
       });
 
-      const matchedTier = tiers.find((t) => customer.points >= t.minPoints);
+      const matchedTier = tiers.find((t: any) => customer.points >= t.minPoints);
       if (matchedTier && matchedTier.id !== customer.membershipTierId) {
         await tx.customer.update({
           where: { id: customerId },

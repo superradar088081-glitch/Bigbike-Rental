@@ -39,7 +39,7 @@ export class GpsService {
       },
     });
 
-    return devices.map((d) => {
+    return devices.map((d: any) => {
       const latestLog = d.logs[0] || null;
       const isOut = latestLog ? latestLog.isOutOfZone : false;
       const activeBooking = d.vehicle.bookings[0] || null;

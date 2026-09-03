@@ -16,15 +16,15 @@ export class ReportService {
       select: { amount: true, createdAt: true },
     });
 
-    const totalRevenue = allCompletedPayments.reduce((acc, p) => acc + p.amount, 0);
+    const totalRevenue = allCompletedPayments.reduce((acc: number, p: any) => acc + p.amount, 0);
 
     const monthRevenue = allCompletedPayments
-      .filter((p) => p.createdAt >= startOfMonth)
-      .reduce((acc, p) => acc + p.amount, 0);
+      .filter((p: any) => p.createdAt >= startOfMonth)
+      .reduce((acc: number, p: any) => acc + p.amount, 0);
 
     const todayRevenue = allCompletedPayments
-      .filter((p) => p.createdAt >= startOfToday)
-      .reduce((acc, p) => acc + p.amount, 0);
+      .filter((p: any) => p.createdAt >= startOfToday)
+      .reduce((acc: number, p: any) => acc + p.amount, 0);
 
     // 2. Booking stats
     const totalBookings = await prisma.booking.count();
@@ -109,7 +109,7 @@ export class ReportService {
         cancelled: cancelledBookings || 5,
       },
       monthlyData,
-      topVehicles: topVehicles.map((v, i) => ({
+      topVehicles: topVehicles.map((v: any, i: number) => ({
         rank: i + 1,
         name: `${v.brand} ${v.model}`,
         brand: v.brand,

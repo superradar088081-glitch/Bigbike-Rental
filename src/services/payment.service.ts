@@ -52,7 +52,7 @@ export class PaymentService {
   }
 
   static async refundDeposit(bookingId: string, refundAmount: number, damageDeduction: number = 0) {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: any) => {
       // Create Refund Payment record
       const refund = await tx.payment.create({
         data: {
