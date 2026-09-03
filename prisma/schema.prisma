@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  MAINTENANCE
+  INACTIVE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  DEPOSIT
+  FULL_PAYMENT
+  REFUND
+  DAMAGE_DEDUCTION
+}
+
+enum PaymentMethod {
+  PROMPTPAY
+  CREDIT_CARD
+  BANK_TRANSFER
+  CASH
+}
+
+enum DocumentType {
+  ID_CARD
+  DRIVER_LICENSE
+  PASSPORT
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DamageReportStatus {
+  PENDING_REVIEW
+  DEDUCTED_FROM_DEPOSIT
+  RESOLVED
+  WAIVED
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PointsTransactionType {
+  EARN
+  REDEEM
+  ADJUST
+  EXPIRE
+}
+
+enum GpsDeviceStatus {
+  ACTIVE
+  INACTIVE
+  OFFLINE
+  ALERT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(CUSTOMER)
+  avatarUrl    String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customer     Customer?
+
+  @@index([email])
+  @@index([role])
+}
+
+model Customer {
+  id                  String               @id @default(cuid())
+  userId              String               @unique
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName           String
+  lastName            String
+  phone               String
+  address             String?              @db.Text
+  idCardNumber        String?
+  driverLicenseNumber String?
+  points              Int                  @default(0)
+  membershipTierId    String?
+  membershipTier      MembershipTier?      @relation(fields: [membershipTierId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  bookings            Booking[]
+  documents           RentalDocument[]
+  pointsTransactions  PointsTransaction[]
+
+  @@index([phone])
+  @@index([idCardNumber])
+}
+
+model MembershipTier {
+  id                 String     @id @default(cuid())
+  name               String     @unique
+  minPoints          Int        @default(0)
+  discountPercentage Float      @default(0)
+  multiplier         Float      @default(1.0)
+  color              String     @default("#e11d48")
+  perks              String?    @db.Text
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  customers          Customer[]
+}
+
+model Vehicle {
+  id                String            @id @default(cuid())
+  brand             String
+  model             String
+  year              Int
+  engineCC          Int
+  licensePlate      String            @unique
+  color             String
+  category          String            @default("Super Sport")
+  horsepower        Int?
+  fuelType          String            @default("Gasoline 95")
+  transmission      String            @default("Manual 6-Speed")
+  seatHeight        Int?              @default(835)
+  weightKg          Int?              @default(195)
+  description       String?           @db.Text
+  imageUrl          String            @db.Text
+  images            String?           @db.Text
+  rentalPricePerDay Float
+  depositAmount     Float
+  status            VehicleStatus     @default(AVAILABLE)
+  mileage           Int               @default(0)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  bookings          Booking[]
+  gpsDevice         GpsDevice?
+  damageReports     DamageReport[]
+  maintenanceLogs   MaintenanceLog[]
+
+  @@index([brand])
+  @@index([status])
+  @@index([engineCC])
+  @@index([rentalPricePerDay])
+}
+
+model Booking {
+  id                String            @id @default(cuid())
+  bookingNumber     String            @unique
+  customerId        String
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId         String
+  vehicle           Vehicle           @relation(fields: [vehicleId], references: [id])
+  startDate         DateTime
+  endDate           DateTime
+  totalDays         Int
+  rentalPrice       Float
+  depositAmount     Float
+  discountAmount    Float             @default(0)
+  pointsUsed        Int               @default(0)
+  pointsDiscount    Float             @default(0)
+  totalAmount       Float
+  status            BookingStatus     @default(PENDING)
+  notes             String?           @db.Text
+  pickupLocation    String            @default("BKK Main Branch")
+  returnLocation    String            @default("BKK Main Branch")
+  actualReturnDate  DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  payments          Payment[]
+  contract          RentalContract?
+  damageReports     DamageReport[]
+  documents         RentalDocument[]
+
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([startDate, endDate])
+  @@index([status])
+  @@index([bookingNumber])
+}
+
+model Payment {
+  id            String         @id @default(cuid())
+  bookingId     String
+  booking       Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount        Float
+  paymentType   PaymentType    @default(FULL_PAYMENT)
+  paymentMethod PaymentMethod  @default(PROMPTPAY)
+  status        PaymentStatus  @default(PENDING)
+  transactionId String?
+  slipUrl       String?        @db.Text
+  notes         String?        @db.Text
+  paidAt        DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model RentalDocument {
+  id             String         @id @default(cuid())
+  customerId     String
+  customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?       @relation(fields: [bookingId], references: [id])
+  documentType   DocumentType   @default(ID_CARD)
+  documentNumber String?
+  fileUrl        String         @db.Text
+  status         DocumentStatus @default(PENDING)
+  verifiedBy     String?
+  verifiedAt     DateTime?
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model RentalContract {
+  id                String    @id @default(cuid())
+  bookingId         String    @unique
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  contractNumber    String    @unique
+  contractDate      DateTime  @default(now())
+  terms             String    @db.Text
+  customerSignature String?   @db.Text
+  staffSignature    String?   @db.Text
+  status            String    @default("ACTIVE")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model GpsDevice {
+  id           String          @id @default(cuid())
+  vehicleId    String          @unique
+  vehicle      Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  deviceSerial String          @unique
+  status       GpsDeviceStatus @default(ACTIVE)
+  batteryLevel Int             @default(95)
+  lastSeenAt   DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  logs         GpsLog[]
+
+  @@index([deviceSerial])
+}
+
+model GpsLog {
+  id          String    @id @default(cuid())
+  deviceId    String
+  device      GpsDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  latitude    Float
+  longitude   Float
+  speed       Float     @default(0)
+  heading     Float?    @default(0)
+  isOutOfZone Boolean   @default(false)
+  recordedAt  DateTime  @default(now())
+
+  @@index([deviceId, recordedAt])
+}
+
+model DamageReport {
+  id                   String             @id @default(cuid())
+  bookingId            String?
+  booking              Booking?           @relation(fields: [bookingId], references: [id])
+  vehicleId            String
+  vehicle              Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  description          String             @db.Text
+  estimatedCost        Float              @default(0)
+  actualCost           Float              @default(0)
+  deductionFromDeposit Float              @default(0)
+  evidenceImages       String?            @db.Text
+  reportedBy           String
+  status               DamageReportStatus @default(PENDING_REVIEW)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([vehicleId])
+  @@index([bookingId])
+}
+
+model MaintenanceLog {
+  id              String            @id @default(cuid())
+  vehicleId       String
+  vehicle         Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  maintenanceType String
+  description     String            @db.Text
+  cost            Float             @default(0)
+  mileage         Int               @default(0)
+  serviceDate     DateTime          @default(now())
+  nextServiceDate DateTime?
+  status          MaintenanceStatus @default(SCHEDULED)
+  performedBy     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([vehicleId])
+  @@index([status])
+}
+
+model PointsTransaction {
+  id          String                @id @default(cuid())
+  customerId  String
+  customer    Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId   String?
+  type        PointsTransactionType
+  points      Int
+  description String                @db.Text
+  createdAt   DateTime              @default(now())
+
+  @@index([customerId])
+  @@index([bookingId])
+}
