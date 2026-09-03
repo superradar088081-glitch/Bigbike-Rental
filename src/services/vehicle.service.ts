@@ -101,14 +101,22 @@ export class VehicleService {
     });
   }
 
-  static async createVehicle(data: Prisma.VehicleCreateInput) {
-    return prisma.vehicle.create({ data });
+  static async createVehicle(data: any) {
+    const payload = { ...data };
+    if (Array.isArray(payload.images)) {
+      payload.images = JSON.stringify(payload.images);
+    }
+    return prisma.vehicle.create({ data: payload });
   }
 
-  static async updateVehicle(id: string, data: Prisma.VehicleUpdateInput) {
+  static async updateVehicle(id: string, data: any) {
+    const payload = { ...data };
+    if (Array.isArray(payload.images)) {
+      payload.images = JSON.stringify(payload.images);
+    }
     return prisma.vehicle.update({
       where: { id },
-      data,
+      data: payload,
     });
   }
 

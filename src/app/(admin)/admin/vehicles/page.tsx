@@ -49,7 +49,9 @@ export default function AdminVehiclesPage() {
   });
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,25 +104,60 @@ export default function AdminVehiclesPage() {
 
   const handleSaveVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setIsSubmitting(true);
+
     try {
+      let res;
       if (isEditModalOpen && currentVehicle) {
-        await fetch(`/api/vehicles/${currentVehicle.id}`, {
+        res = await fetch(`/api/vehicles/${currentVehicle.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         });
       } else {
-        await fetch('/api/vehicles', {
+        res = await fetch('/api/vehicles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         });
       }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลรถ');
+      }
+
       setIsAddModalOpen(false);
       setIsEditModalOpen(false);
+      await fetchVehicles();
+      alert(isEditModalOpen ? 'แก้ไขข้อมูลรถสำเร็จแล้ว' : 'เพิ่มรถบิ๊กไบค์ใหม่สำเร็จแล้ว!');
+    } catch (err: any) {
+      console.error('Save vehicle error:', err);
+      setFormError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลรถ');
+      alert(`⚠️ ${err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลรถ'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteVehicle = async (id: string, modelName: string) => {
+    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบรถ ${modelName} ออกจากระบบ?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/vehicles/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'ไม่สามารถลบรถได้');
+      }
+      alert('ลบข้อมูลรถเรียบร้อยแล้ว');
       fetchVehicles();
-    } catch (err) {
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลรถ');
+    } catch (err: any) {
+      alert(`⚠️ ${err.message || 'เกิดข้อผิดพลาดในการลบรถ'}`);
     }
   };
 
@@ -159,6 +196,7 @@ export default function AdminVehiclesPage() {
           variant="primary"
           size="sm"
           onClick={() => {
+            setFormError(null);
             setFormData({
               brand: 'Ducati',
               model: '',
@@ -208,6 +246,7 @@ export default function AdminVehiclesPage() {
             <option value="Kawasaki">Kawasaki</option>
             <option value="Honda">Honda</option>
             <option value="Triumph">Triumph</option>
+            <option value="Suzuki">Suzuki</option>
             <option value="Harley-Davidson">Harley-Davidson</option>
           </select>
 
@@ -222,6 +261,7 @@ export default function AdminVehiclesPage() {
             <option value="RENTED">กำลังเช่า (Rented)</option>
             <option value="RESERVED">จองแล้ว (Reserved)</option>
             <option value="MAINTENANCE">ซ่อมบำรุง (Maintenance)</option>
+            <option value="INACTIVE">ปิดใช้งาน (Inactive)</option>
           </select>
         </div>
       </div>
@@ -298,6 +338,7 @@ export default function AdminVehiclesPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => {
+                            setFormError(null);
                             setCurrentVehicle(vehicle);
                             setFormData({
                               brand: vehicle.brand,
@@ -321,6 +362,13 @@ export default function AdminVehiclesPage() {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => handleDeleteVehicle(vehicle.id, `${vehicle.brand} ${vehicle.model}`)}
+                          className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                          title="ลบ"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -337,42 +385,68 @@ export default function AdminVehiclesPage() {
         onClose={() => {
           setIsAddModalOpen(false);
           setIsEditModalOpen(false);
+          setFormError(null);
         }}
         title={isEditModalOpen ? 'แก้ไขข้อมูลรถบิ๊กไบค์' : 'เพิ่มรถบิ๊กไบค์ใหม่เข้าระบบ'}
         maxWidth="2xl"
       >
         <form onSubmit={handleSaveVehicle} className="space-y-4 text-xs">
+          {formError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{formError}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-700 mb-1">
+                ยี่ห้อ (Brand) *
+              </label>
+              <select
+                value={formData.brand}
+                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-500"
+                required
+              >
+                <option value="Ducati">Ducati</option>
+                <option value="BMW">BMW</option>
+                <option value="Yamaha">Yamaha</option>
+                <option value="Kawasaki">Kawasaki</option>
+                <option value="Honda">Honda</option>
+                <option value="Triumph">Triumph</option>
+                <option value="Suzuki">Suzuki</option>
+                <option value="Harley-Davidson">Harley-Davidson</option>
+                <option value="KTM">KTM</option>
+                <option value="Aprilia">Aprilia</option>
+              </select>
+            </div>
             <Input
-              label="ยี่ห้อ (Brand)"
-              value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              required
-            />
-            <Input
-              label="รุ่น (Model)"
+              label="รุ่น (Model) *"
               value={formData.model}
               onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+              placeholder="เช่น Panigale V4S, S 1000 RR"
               required
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <Input
-              label="ทะเบียนรถ (License Plate)"
+              label="ทะเบียนรถ (License Plate) *"
               value={formData.licensePlate}
               onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })}
+              placeholder="เช่น 1กพ 1234"
               required
             />
             <Input
-              label="ขนาดเครื่องยนต์ (CC)"
+              label="ขนาดเครื่องยนต์ (CC) *"
               type="number"
               value={formData.engineCC}
               onChange={(e) => setFormData({ ...formData, engineCC: Number(e.target.value) })}
               required
             />
             <Input
-              label="ปี (Year)"
+              label="ปีที่ผลิต (Year) *"
               type="number"
               value={formData.year}
               onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
@@ -380,20 +454,68 @@ export default function AdminVehiclesPage() {
             />
           </div>
 
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-700 mb-1">
+                ประเภทรถ (Category) *
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-500"
+                required
+              >
+                <option value="Super Sport">Super Sport</option>
+                <option value="Naked Roadster">Naked Roadster</option>
+                <option value="Touring Adventure">Touring Adventure</option>
+                <option value="Cruiser">Cruiser</option>
+                <option value="Hyper Sport">Hyper Sport</option>
+                <option value="Modern Classic">Modern Classic</option>
+                <option value="Scooter">Scooter</option>
+              </select>
+            </div>
+            <Input
+              label="สีของรถ (Color) *"
+              value={formData.color}
+              onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+              placeholder="เช่น Red, Vivid Black"
+              required
+            />
+            <Input
+              label="แรงม้า (Horsepower HP)"
+              type="number"
+              value={formData.horsepower}
+              onChange={(e) => setFormData({ ...formData, horsepower: Number(e.target.value) })}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="ราคาเช่าต่อวัน (THB)"
+              label="ราคาเช่าต่อวัน (THB/Day) *"
               type="number"
               value={formData.rentalPricePerDay}
               onChange={(e) => setFormData({ ...formData, rentalPricePerDay: Number(e.target.value) })}
               required
             />
             <Input
-              label="เงินมัดจำ (Deposit THB)"
+              label="เงินมัดจำ (Deposit THB) *"
               type="number"
               value={formData.depositAmount}
               onChange={(e) => setFormData({ ...formData, depositAmount: Number(e.target.value) })}
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase text-slate-700 mb-1">
+              คำอธิบายรายละเอียดรถ (Description)
+            </label>
+            <textarea
+              rows={2}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="รายละเอียดสเปกรถ จุดเด่น อุปกรณ์ตกแต่ง..."
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-brand-500"
             />
           </div>
 
@@ -481,12 +603,14 @@ export default function AdminVehiclesPage() {
               onClick={() => {
                 setIsAddModalOpen(false);
                 setIsEditModalOpen(false);
+                setFormError(null);
               }}
+              disabled={isSubmitting}
             >
               ยกเลิก
             </Button>
-            <Button type="submit" variant="primary">
-              บันทึกข้อมูล
+            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+              {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
             </Button>
           </div>
         </form>
